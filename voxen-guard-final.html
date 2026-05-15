@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0c0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Voxen Guard</title>
+
+<!-- Leaflet — mapa real igual GPS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Firebase -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getFirestore, collection, addDoc, getDocs,
+    doc, updateDoc, deleteDoc, onSnapshot, setDoc
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey:            "AIzaSyDnJwjeEphc7ZTRl-qwT0yQW187KfSJ2H8",
+    authDomain:        "voxen-guard.firebaseapp.com",
+    projectId:         "voxen-guard",
+    storageBucket:     "voxen-guard.firebasestorage.app",
+    messagingSenderId: "117005753576",
+    appId:             "1:117005753576:web:7f385b89990de39333bd5d",
+    measurementId:     "G-J7QYH89X5T"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+
+  // Expõe para o app
+  window._db         = db;
+  window._col        = collection;
+  window._addDoc     = addDoc;
+  window._getDocs    = getDocs;
+  window._doc        = doc;
+  window._updateDoc  = updateDoc;
+  window._deleteDoc  = deleteDoc;
+  window._onSnapshot = onSnapshot;
+  window._setDoc     = setDoc;
+  window._fbReady    = true;
+
+  document.dispatchEvent(new Event('fb-ready'));
+</script>
+
+<!-- Fontes -->
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+
+<style>
+/* ══════════════════════════════════════
+   TOKENS
+══════════════════════════════════════ */
+:root{
+  --bg:#08090c;--bg2:#0f1115;--bg3:#161820;--bg4:#1c1f2a;
+  --border:#1c1f2a;--border2:#242836;
+  --accent:#00e5a0;--accent2:#00b87a;
+  --accent-dim:rgba(0,229,160,.07);--accent-dim2:rgba(0,229,160,.14);
+  --red:#ff4444;--red-dim:rgba(255,68,68,.1);
+  --amber:#ffb020;--amber-dim:rgba(255,176,32,.1);
+  --blue:#3d8bff;--blue-dim:rgba(61,139,255,.1);
+  --purple:#9d6fff;--purple-dim:rgba(157,111,255,.1);
+  --text:#dde1ed;--text2:#7a8299;--text3:#3d4460;
+  --fh:'Syne',sans-serif;--fb:'DM Sans',sans-serif;
+  --r:12px;--r2:8px;--r3:6px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--fb)}
+
+/* ══════════════════════════════════════
+   LAYOUT PRINCIPAL
+══════════════════════════════════════ */
+.app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+/* ── TOPBAR ── */
+.topbar{
+  height:52px;background:var(--bg2);border-bottom:1px solid var(--border);
+  padding:0 16px;display:flex;align-items:center;gap:12px;flex-shrink:0;
+  position:relative;z-index:1000;
+}
+.logo{display:flex;align-items:center;gap:8px;margin-right:8px}
+.logo-mark{
+  width:28px;height:28px;background:var(--accent);border-radius:7px;
+  position:relative;flex-shrink:0;
+}
+.logo-mark::after{content:'';position:absolute;width:12px;height:12px;border:2px solid var(--bg);border-radius:50%;top:50%;left:50%;transform:translate(-50%,-50%)}
+.logo-mark::before{content:'';position:absolute;width:4px;height:4px;background:var(--bg);border-radius:50%;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1}
+.logo-name{font-family:var(--fh);font-size:15px;font-weight:700;letter-spacing:-.2px}
+.logo-name b{color:var(--accent)}
+.nav-pills{display:flex;gap:2px;flex:1}
+.npill{
+  font-size:12px;padding:5px 12px;border-radius:20px;border:none;
+  background:transparent;color:var(--text2);cursor:pointer;
+  font-family:var(--fb);font-weight:500;transition:all .15s;
+  display:flex;align-items:center;gap:5px;
+}
+.npill:hover{background:var(--bg3);color:var(--text)}
+.npill.on{background:var(--accent-dim2);color:var(--accent)}
+.npill .pill-dot{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.7}
+.topbar-right{display:flex;align-items:center;gap:8px;margin-left:auto}
+.live-chip{
+  display:flex;align-items:center;gap:5px;font-size:10px;font-weight:600;
+  color:var(--accent);background:var(--accent-dim);border:1px solid var(--accent-dim2);
+  padding:3px 10px;border-radius:20px;letter-spacing:.04em;
+}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--accent);animation:blink 1.4s infinite}
+@keyframes blink{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.7)}}
+.clk{font-family:var(--fh);font-size:12px;font-weight:600;color:var(--text3)}
+.icon-btn{
+  width:30px;height:30px;border-radius:var(--r3);background:var(--bg3);
+  border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:14px;color:var(--text2);transition:all .15s;position:relative;
+}
+.icon-btn:hover{border-color:var(--accent);color:var(--accent)}
+.badge{
+  position:absolute;top:-4px;right:-4px;width:14px;height:14px;
+  background:var(--red);border-radius:50%;font-size:8px;font-weight:700;
+  color:#fff;display:flex;align-items:center;justify-content:center;
+  font-family:var(--fh);border:2px solid var(--bg2);
+}
+
+/* ── ALERT BAR ── */
+.alert-bar{
+  background:var(--bg2);border-bottom:1px solid var(--border);
+  padding:5px 16px;display:flex;align-items:center;gap:8px;
+  overflow-x:auto;flex-shrink:0;min-height:34px;
+}
+.alert-bar::-webkit-scrollbar{display:none}
+.albl{font-size:10px;color:var(--text3);flex-shrink:0;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.achip{
+  display:inline-flex;align-items:center;gap:5px;padding:3px 10px;
+  border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap;
+  cursor:pointer;flex-shrink:0;transition:opacity .15s;
+}
+.achip:hover{opacity:.8}
+.achip:active{transform:scale(.96)}
+.achip.r{background:var(--red-dim);border:1px solid rgba(255,68,68,.25);color:var(--red)}
+.achip.a{background:var(--amber-dim);border:1px solid rgba(255,176,32,.25);color:var(--amber)}
+
+/* ── BODY LAYOUT ── */
+.app-body{flex:1;display:flex;overflow:hidden}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:256px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;transition:width .25s;
+}
+.sidebar.collapsed{width:0}
+.sidebar-inner{width:256px;display:flex;flex-direction:column;height:100%;overflow:hidden}
+.sb-section{padding:12px;border-bottom:1px solid var(--border)}
+.sb-label{font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;padding:0 2px}
+.met-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.met{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r2);padding:9px 10px}
+.met-v{font-family:var(--fh);font-size:20px;font-weight:700}
+.met-l{font-size:9px;color:var(--text2);margin-top:1px}
+.search-box{
+  display:flex;align-items:center;gap:7px;background:var(--bg3);
+  border:1px solid var(--border2);border-radius:var(--r2);padding:6px 10px;
+  margin-bottom:8px;
+}
+.search-box span{font-size:13px;color:var(--text3)}
+.search-box input{background:transparent;border:none;outline:none;font-size:12px;color:var(--text);font-family:var(--fb);flex:1}
+.search-box input::placeholder{color:var(--text3)}
+.func-list{flex:1;overflow-y:auto;padding:8px}
+.func-list::-webkit-scrollbar{width:3px}
+.func-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.fitem{
+  display:flex;align-items:center;gap:8px;padding:7px 8px;
+  border-radius:var(--r3);cursor:pointer;border:1px solid transparent;
+  transition:all .12s;margin-bottom:3px;
+}
+.fitem:hover{background:var(--bg3)}
+.fitem.sel{background:var(--accent-dim);border-color:var(--accent-dim2)}
+.fitem.alrt{background:var(--red-dim);border-color:rgba(255,68,68,.2)}
+.fitem.warn{background:var(--amber-dim);border-color:rgba(255,176,32,.2)}
+.fav{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;font-family:var(--fh);flex-shrink:0}
+.fi-body{flex:1;min-width:0}
+.fi-name{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fi-sub{font-size:10px;color:var(--text2);margin-top:1px}
+.sdot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.sd-g{background:var(--accent);box-shadow:0 0 5px var(--accent)}
+.sd-a{background:var(--amber)}
+.sd-r{background:var(--red);animation:blink .9s infinite}
+.sd-x{background:var(--text3)}
+
+/* ── MAIN CONTENT ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
+
+/* ── MAPA LEAFLET ── */
+#map{flex:1;z-index:1}
+
+/* Override Leaflet para tema escuro */
+.leaflet-container{background:#0d1117 !important;font-family:var(--fb)}
+.leaflet-tile{filter:brightness(.65) saturate(.5) hue-rotate(200deg)}
+.leaflet-control-zoom{border:1px solid var(--border2) !important;border-radius:var(--r2) !important;overflow:hidden;box-shadow:none !important}
+.leaflet-control-zoom a{background:var(--bg2) !important;color:var(--text2) !important;border-bottom:1px solid var(--border) !important;font-size:16px !important;line-height:28px !important}
+.leaflet-control-zoom a:hover{background:var(--bg3) !important;color:var(--accent) !important}
+.leaflet-control-attribution{background:rgba(10,12,15,.8) !important;color:var(--text3) !important;font-size:9px !important;border-radius:4px !important}
+.leaflet-control-attribution a{color:var(--text3) !important}
+.leaflet-popup-content-wrapper{background:var(--bg2) !important;border:1px solid var(--border2) !important;border-radius:var(--r) !important;box-shadow:0 8px 32px rgba(0,0,0,.5) !important;color:var(--text) !important;padding:0 !important}
+.leaflet-popup-tip{background:var(--bg2) !important}
+.leaflet-popup-content{margin:0 !important;padding:0 !important}
+.leaflet-popup-close-button{color:var(--text2) !important;font-size:16px !important;padding:6px !important}
+
+/* POPUP CUSTOM */
+.popup-box{padding:12px 14px;min-width:180px}
+.popup-name{font-family:var(--fh);font-size:14px;font-weight:700;margin-bottom:3px}
+.popup-role{font-size:11px;color:var(--text2);margin-bottom:8px}
+.popup-row{display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:4px}
+.popup-row .pk{color:var(--text2)}
+.popup-row .pv{font-weight:500}
+.popup-pill{font-size:9px;padding:2px 8px;border-radius:20px;font-weight:600;margin-top:6px;display:inline-block}
+.pp-ok{background:var(--accent-dim2);color:var(--accent)}
+.pp-warn{background:var(--amber-dim);color:var(--amber)}
+.pp-bad{background:var(--red-dim);color:var(--red)}
+.popup-actions{display:flex;gap:5px;margin-top:10px;padding-top:8px;border-top:1px solid var(--border)}
+.pa-btn{flex:1;font-size:10px;padding:5px;border-radius:var(--r3);border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;font-family:var(--fb);transition:all .15s;text-align:center}
+.pa-btn:hover{border-color:var(--accent);color:var(--accent)}
+.pa-btn.primary{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:600}
+
+/* ── PAINEL DIREITO ── */
+.right-panel{
+  width:280px;flex-shrink:0;background:var(--bg2);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.rp-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.rp-tab{
+  flex:1;padding:10px 0;text-align:center;font-size:11px;font-weight:500;
+  color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;
+}
+.rp-tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+.rp-content{flex:1;overflow-y:auto;padding:14px}
+.rp-content::-webkit-scrollbar{width:3px}
+.rp-content::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* DETAIL CARD */
+.detail-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.detail-av{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;font-family:var(--fh);flex-shrink:0}
+.detail-name{font-family:var(--fh);font-size:15px;font-weight:700}
+.detail-role{font-size:11px;color:var(--text2);margin-top:1px}
+.detail-status{font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600;display:inline-block;margin-top:5px}
+.ds-ok{background:var(--accent-dim2);color:var(--accent)}
+.ds-warn{background:var(--amber-dim);color:var(--amber)}
+.ds-bad{background:var(--red-dim);color:var(--red)}
+.stat-grid-sm{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
+.stat-sm{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r3);padding:9px}
+.stat-sm .v{font-family:var(--fh);font-size:16px;font-weight:700}
+.stat-sm .l{font-size:9px;color:var(--text2);margin-top:2px}
+.ev-list{display:flex;flex-direction:column;gap:5px}
+.ev{padding:8px;border-radius:var(--r3);border:1px solid var(--border)}
+.ev.ev-r{background:var(--red-dim);border-color:rgba(255,68,68,.2)}
+.ev.ev-a{background:var(--amber-dim);border-color:rgba(255,176,32,.2)}
+.ev.ev-g{background:var(--accent-dim);border-color:var(--accent-dim2)}
+.ev.ev-b{background:var(--blue-dim);border-color:rgba(61,139,255,.2)}
+.ev-title{font-size:11px;font-weight:500}
+.ev-time{font-size:10px;color:var(--text2);margin-top:2px}
+.sec-lbl{font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px}
+
+/* NOTIFICAÇÕES */
+.notif-item{
+  padding:10px;border-radius:var(--r3);border:1px solid var(--border);
+  margin-bottom:6px;cursor:pointer;transition:all .15s;
+}
+.notif-item:hover{border-color:var(--border2)}
+.notif-item.nr{border-left:2.5px solid var(--red);background:var(--red-dim)}
+.notif-item.na{border-left:2.5px solid var(--amber);background:var(--amber-dim)}
+.notif-item.ng{border-left:2.5px solid var(--accent);background:var(--accent-dim)}
+.ni-hd{display:flex;justify-content:space-between;margin-bottom:3px}
+.ni-title{font-size:11px;font-weight:500}
+.ni-time{font-size:10px;color:var(--text3)}
+.ni-body{font-size:10px;color:var(--text2);line-height:1.5}
+
+/* VISTAS (pages) */
+.page{display:none}
+.page.on{display:flex;flex:1;overflow:hidden}
+
+/* ── CADASTROS ── */
+.cad-layout{flex:1;display:flex;overflow:hidden}
+.cad-list{width:260px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.cad-list-header{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.cad-list-title{font-family:var(--fh);font-size:13px;font-weight:700}
+.cad-items{flex:1;overflow-y:auto;padding:8px}
+.cad-items::-webkit-scrollbar{width:3px}
+.cad-items::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.citem{
+  padding:10px 12px;border-radius:var(--r2);border:1px solid var(--border2);
+  margin-bottom:6px;cursor:pointer;transition:all .15s;background:var(--bg3);
+}
+.citem:hover{border-color:var(--border)}
+.citem.sel{border-color:var(--accent);background:var(--accent-dim)}
+.citem-name{font-size:13px;font-weight:500;margin-bottom:3px}
+.citem-sub{font-size:10px;color:var(--text2)}
+.citem-badges{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
+.cad-form{flex:1;overflow-y:auto;padding:20px}
+.cad-form::-webkit-scrollbar{width:4px}
+.cad-form::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.form-title{font-family:var(--fh);font-size:18px;font-weight:700;margin-bottom:4px}
+.form-sub{font-size:12px;color:var(--text2);margin-bottom:20px;line-height:1.5}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.form-grid.w1{grid-template-columns:1fr}
+.fg{display:flex;flex-direction:column;gap:5px}
+.flbl{font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em}
+.finput{
+  background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r3);
+  padding:9px 12px;font-size:13px;color:var(--text);font-family:var(--fb);
+  outline:none;transition:border-color .15s;width:100%;
+}
+.finput:focus{border-color:var(--accent)}
+.finput::placeholder{color:var(--text3)}
+.fhint{font-size:10px;color:var(--text3)}
+.form-actions{display:flex;gap:8px;justify-content:flex-end;padding-top:14px;border-top:1px solid var(--border);margin-top:8px}
+
+/* BOTÕES GLOBAIS */
+.btn{font-size:12px;padding:8px 18px;border-radius:var(--r3);cursor:pointer;font-family:var(--fb);transition:all .15s;border:1px solid var(--border2);background:transparent;color:var(--text2)}
+.btn:hover{border-color:var(--text2);color:var(--text)}
+.btn.primary{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:600}
+.btn.primary:hover{opacity:.85}
+.btn.danger:hover{border-color:var(--red);color:var(--red)}
+.btn.sm{font-size:11px;padding:5px 12px}
+.btn.xs{font-size:10px;padding:3px 9px}
+
+/* PILLS */
+.pill{font-size:9px;padding:2px 8px;border-radius:20px;font-weight:600;display:inline-block}
+.p-g{background:var(--accent-dim2);color:var(--accent)}
+.p-a{background:var(--amber-dim);color:var(--amber)}
+.p-r{background:var(--red-dim);color:var(--red)}
+.p-b{background:var(--blue-dim);color:var(--blue)}
+.p-x{background:var(--bg4);color:var(--text3)}
+
+/* RAIO CONFIG */
+.raio-row{display:flex;align-items:center;gap:12px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r3);padding:10px 12px;margin-bottom:12px}
+.raio-lbl{font-size:12px;color:var(--text2);flex:1}
+.raio-val{font-family:var(--fh);font-size:16px;font-weight:700;color:var(--accent);min-width:48px;text-align:right}
+input[type=range]{accent-color:var(--accent);flex:1}
+
+/* TOGGLE */
+.tog{width:34px;height:18px;background:var(--border2);border-radius:9px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
+.tog.on{background:var(--accent)}
+.tog-thumb{position:absolute;top:2px;left:2px;width:14px;height:14px;background:#fff;border-radius:50%;transition:transform .2s}
+.tog.on .tog-thumb{transform:translateX(16px)}
+
+/* EMPTY STATE */
+.empty{text-align:center;padding:32px 16px;color:var(--text3)}
+.empty-icon{font-size:32px;margin-bottom:8px}
+.empty-title{font-size:13px;color:var(--text2);font-weight:500;margin-bottom:4px}
+.empty-sub{font-size:11px;line-height:1.6}
+
+/* TOAST */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:10px 16px;font-size:12px;color:var(--text);z-index:9999;transform:translateY(60px);opacity:0;transition:all .3s;max-width:280px;border-left:3px solid var(--accent)}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.err{border-left-color:var(--red)}
+
+/* SPINNER */
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:5px}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;z-index:2000}
+.overlay.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:20px;width:480px;max-width:95vw;max-height:88vh;overflow-y:auto}
+.modal-title{font-family:var(--fh);font-size:15px;font-weight:700;margin-bottom:14px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;border-top:1px solid var(--border);padding-top:12px}
+
+/* MAPA MINI (no formulário) */
+#mini-map{height:220px;border-radius:var(--r3);overflow:hidden;border:1px solid var(--border2);margin-bottom:8px}
+.leaflet-tile-pane .leaflet-tile{filter:brightness(.65) saturate(.5) hue-rotate(200deg)}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ══════════════════ TOPBAR ══════════════════ -->
+<header class="topbar">
+  <div class="logo">
+    <div class="logo-mark"></div>
+    <span class="logo-name">VOXEN <b>GUARD</b></span>
+  </div>
+  <nav class="nav-pills">
+    <button class="npill on" onclick="showPage('painel',this)"><span class="pill-dot"></span>Painel</button>
+    <button class="npill" onclick="showPage('empresas',this)"><span class="pill-dot"></span>Empresas</button>
+    <button class="npill" onclick="showPage('funcionarios',this)"><span class="pill-dot"></span>Funcionários</button>
+    <button class="npill" onclick="showPage('chips',this)"><span class="pill-dot"></span>Chips GPS</button>
+    <button class="npill" onclick="showPage('relatorios',this)"><span class="pill-dot"></span>Relatórios</button>
+  </nav>
+  <div class="topbar-right">
+    <div class="live-chip"><div class="live-dot"></div>AO VIVO</div>
+    <div class="icon-btn" onclick="showNotifs()" title="Notificações">
+      🔔<div class="badge" id="notif-badge">2</div>
+    </div>
+    <span class="clk" id="clk">--:--:--</span>
+  </div>
+</header>
+
+<!-- ══════════════════ ALERT BAR ══════════════════ -->
+<div class="alert-bar" id="alert-bar">
+  <span class="albl">Alertas</span>
+  <div id="alert-chips" style="display:flex;gap:6px"></div>
+  <span id="no-alerts" style="font-size:11px;color:var(--text3)">Nenhum alerta no momento ✓</span>
+</div>
+
+<!-- ══════════════════ PÁGINAS ══════════════════ -->
+
+<!-- ── PAINEL AO VIVO ── -->
+<div class="page on" id="page-painel" style="position:relative">
+  <div class="app-body" style="flex:1">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-inner">
+        <div class="sb-section">
+          <div class="sb-label">Turno de hoje</div>
+          <div class="met-grid">
+            <div class="met"><div class="met-v" id="m-ativos" style="color:var(--accent)">0</div><div class="met-l">Ativos</div></div>
+            <div class="met"><div class="met-v" id="m-alertas" style="color:var(--red)">0</div><div class="met-l">Alertas</div></div>
+            <div class="met"><div class="met-v" id="m-parados" style="color:var(--amber)">0</div><div class="met-l">Parados</div></div>
+            <div class="met"><div class="met-v" id="m-total">0</div><div class="met-l">Total</div></div>
+          </div>
+        </div>
+        <div class="sb-section" style="padding-bottom:8px">
+          <div class="search-box">
+            <span>🔍</span>
+            <input placeholder="Buscar funcionário..." oninput="filtrarFuncionarios(this.value)" id="search-func"/>
+          </div>
+          <div class="sb-label">Funcionários</div>
+        </div>
+        <div class="func-list" id="func-list"></div>
+      </div>
+    </aside>
+
+    <!-- MAPA PRINCIPAL -->
+    <div class="main">
+      <div id="map" style="flex:1;min-height:0"></div>
+    </div>
+
+    <!-- PAINEL DIREITO -->
+    <div class="right-panel">
+      <div class="rp-tabs">
+        <div class="rp-tab on" onclick="setRpTab(this,'detail')">Detalhe</div>
+        <div class="rp-tab" onclick="setRpTab(this,'notif')">Alertas</div>
+        <div class="rp-tab" onclick="setRpTab(this,'emp')">Locais</div>
+      </div>
+      <div class="rp-content" id="rp-detail">
+        <div class="empty"><div class="empty-icon">👆</div><div class="empty-title">Selecione um funcionário</div><div class="empty-sub">Clique em um pin no mapa ou na lista lateral</div></div>
+      </div>
+      <div class="rp-content" id="rp-notif" style="display:none"></div>
+      <div class="rp-content" id="rp-emp" style="display:none"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── EMPRESAS ── -->
+<div class="page" id="page-empresas">
+  <div class="cad-layout">
+    <div class="cad-list">
+      <div class="cad-list-header">
+        <span class="cad-list-title">Empresas</span>
+        <button class="btn sm primary" onclick="novaEmpresa()">+ Nova</button>
+      </div>
+      <div class="cad-items" id="emp-list"></div>
+    </div>
+    <div class="cad-form" id="emp-form">
+      <div class="empty" style="margin-top:60px"><div class="empty-icon">🏢</div><div class="empty-title">Selecione ou crie uma empresa</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── FUNCIONÁRIOS ── -->
+<div class="page" id="page-funcionarios">
+  <div class="cad-layout">
+    <div class="cad-list">
+      <div class="cad-list-header">
+        <span class="cad-list-title">Funcionários</span>
+        <button class="btn sm primary" onclick="novoFuncionario()">+ Novo</button>
+      </div>
+      <div class="cad-items" id="func-cad-list"></div>
+    </div>
+    <div class="cad-form" id="func-form">
+      <div class="empty" style="margin-top:60px"><div class="empty-icon">👷</div><div class="empty-title">Selecione ou cadastre um funcionário</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── CHIPS GPS ── -->
+<div class="page" id="page-chips">
+  <div class="cad-layout">
+    <div class="cad-list">
+      <div class="cad-list-header">
+        <span class="cad-list-title">Rastreadores</span>
+        <button class="btn sm primary" onclick="novoChip()">+ Vincular</button>
+      </div>
+      <div class="cad-items" id="chip-list"></div>
+    </div>
+    <div class="cad-form" id="chip-form">
+      <div class="empty" style="margin-top:60px"><div class="empty-icon">📡</div><div class="empty-title">Vincule um chip GPS a um funcionário</div><div class="empty-sub">Cada rastreador físico precisa ser vinculado pelo IMEI</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── RELATÓRIOS ── -->
+<div class="page" id="page-relatorios">
+  <div class="cad-form" style="max-width:640px;margin:0 auto;padding:24px">
+    <div class="form-title">Relatórios mensais</div>
+    <div class="form-sub">Gerados automaticamente todo dia 1 e enviados por e-mail ao cliente e à sua central.</div>
+    <div class="form-grid">
+      <div class="fg"><label class="flbl">Empresa</label><select class="finput" id="rel-emp"><option>Selecione...</option></select></div>
+      <div class="fg"><label class="flbl">Período</label><select class="finput"><option>Maio 2026</option><option>Abril 2026</option><option>Março 2026</option></select></div>
+    </div>
+    <button class="btn primary" onclick="gerarRel()">Gerar e enviar relatório PDF</button>
+    <div id="rel-hist" style="margin-top:20px"></div>
+  </div>
+</div>
+
+</div><!-- /app -->
+
+<!-- ══════════════════ MODAL EMPRESA ══════════════════ -->
+<div class="overlay" id="modal-emp">
+  <div class="modal">
+    <div class="modal-title" id="modal-emp-title">Nova empresa cliente</div>
+    <div class="form-grid">
+      <div class="fg"><label class="flbl">Nome *</label><input class="finput" id="e-nome" placeholder="Ex: Cond. Vila Nova"/></div>
+      <div class="fg"><label class="flbl">Tipo</label><select class="finput" id="e-tipo"><option>Condomínio residencial</option><option>Condomínio comercial</option><option>Indústria / Fábrica</option><option>Obra / Construção</option><option>Shopping</option><option>Outro</option></select></div>
+    </div>
+    <div class="form-grid w1">
+      <div class="fg"><label class="flbl">Endereço completo *</label><input class="finput" id="e-end" placeholder="Rua, número, bairro, cidade — SP" oninput="debounceGeocode()"/><span class="fhint">Digite o endereço — o mapa vai centralizar automaticamente</span></div>
+    </div>
+    <div class="form-grid">
+      <div class="fg"><label class="flbl">E-mail para relatórios</label><input class="finput" id="e-email" type="email" placeholder="gestor@empresa.com.br"/></div>
+      <div class="fg"><label class="flbl">Turno</label><select class="finput" id="e-turno"><option>12x36 Diurno</option><option>12x36 Noturno</option><option>Diurno 8h</option><option>24 horas</option></select></div>
+    </div>
+    <div class="flbl" style="margin-bottom:8px">Posição e cerca virtual no mapa — clique para mover o centro</div>
+    <div id="mini-map"></div>
+    <div class="raio-row">
+      <span class="raio-lbl">Raio da cerca monitorada</span>
+      <input type="range" min="50" max="1000" value="200" step="10" id="e-raio" oninput="updateMiniCircle(this.value)" style="width:120px">
+      <span class="raio-val" id="e-raio-val">200m</span>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharModal('modal-emp')">Cancelar</button>
+      <button class="btn primary" id="btn-salvar-emp" onclick="salvarEmpresa()">Salvar empresa</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+// ESTADO GLOBAL
+// ══════════════════════════════════════════
+let empresas = [];
+let funcionarios = [];
+let chips = [];
+let map = null;
+let miniMap = null;
+let miniCircle = null;
+let miniMarker = null;
+let miniCenter = [-23.5505, -46.6333]; // São Paulo como padrão
+let selectedFuncId = null;
+let markers = {};
+let circles = {};
+let editEmpId = null;
+let geocodeTimer = null;
+
+// ══════════════════════════════════════════
+// INICIALIZAR MAPA PRINCIPAL
+// ══════════════════════════════════════════
+function initMap() {
+  map = L.map('map', {
+    center: [-23.5505, -46.6333],
+    zoom: 14,
+    zoomControl: true,
+  });
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap',
+    maxZoom: 19,
+  }).addTo(map);
+
+  // Adiciona dados de demonstração se não houver dados reais
+  carregarDemo();
+}
+
+// ══════════════════════════════════════════
+// DADOS DE DEMONSTRAÇÃO
+// ══════════════════════════════════════════
+function carregarDemo() {
+  empresas = [
+    { id:'e1', nome:'Cond. Vila Nova', tipo:'Condomínio residencial', endereco:'Av. Paulista, 1000 — São Paulo, SP', email:'sindico@vilaova.com', turno:'12x36 Diurno', lat:-23.5613, lng:-46.6560, raio:200, ativo:true },
+    { id:'e2', nome:'Fábrica Metaltec', tipo:'Indústria / Fábrica', endereco:'Rua Industrial, 500 — Santo André, SP', email:'rh@metaltec.com', turno:'12x36 Diurno', lat:-23.6640, lng:-46.5330, raio:350, ativo:true },
+  ];
+  funcionarios = [
+    { id:'f1', nome:'Carlos Silva', cargo:'Vigilante', turno:'12x36 Diurno', empresaId:'e1', device:'gps', status:'ok', lat:-23.5608, lng:-46.6558, ultimaVez:'14:32', parado:'0min', bat:'87%' },
+    { id:'f2', nome:'Maria Pereira', cargo:'Porteira', turno:'12x36 Diurno', empresaId:'e1', device:'app', status:'ok', lat:-23.5619, lng:-46.6565, ultimaVez:'14:30', parado:'5min', bat:'62%' },
+    { id:'f3', nome:'João Lima', cargo:'Vigilante', turno:'12x36 Noturno', empresaId:'e1', device:'gps', status:'warn', lat:-23.5615, lng:-46.6550, ultimaVez:'14:01', parado:'38min ⚠', bat:'45%' },
+    { id:'f4', nome:'Marcos Ferreira', cargo:'Vigilante', turno:'12x36 Diurno', empresaId:'e2', device:'gps', status:'danger', lat:-23.6680, lng:-46.5280, ultimaVez:'14:28', parado:'2min', bat:'71%' },
+    { id:'f5', nome:'Pedro Alves', cargo:'Zelador', turno:'Diurno 8h', empresaId:'e1', device:'nfc', status:'ok', lat:-23.5622, lng:-46.6570, ultimaVez:'14:35', parado:'8min', bat:'—' },
+  ];
+  chips = [
+    { id:'c1', imei:'861234567890001', funcId:'f1', status:'online' },
+    { id:'c2', imei:'861234567890003', funcId:'f3', status:'online' },
+    { id:'c3', imei:'861234567890004', funcId:'f4', status:'online' },
+  ];
+
+  renderTudo();
+}
+
+// ══════════════════════════════════════════
+// RENDERIZAR TUDO
+// ══════════════════════════════════════════
+function renderTudo() {
+  renderMapMarkers();
+  renderSidebar();
+  renderAlertBar();
+  renderMetricas();
+  renderEmpList();
+  renderFuncCadList();
+  renderChipList();
+  renderNotifs();
+  renderLocais();
+  atualizarSelects();
+}
+
+// ══════════════════════════════════════════
+// MARCADORES NO MAPA
+// ══════════════════════════════════════════
+const corStatus = { ok: '#00e5a0', warn: '#ffb020', danger: '#ff4444', off: '#4a5168' };
+
+function criarIcone(func) {
+  const c = corStatus[func.status] || '#888';
+  const sigla = func.nome.split(' ').map(p=>p[0]).join('').substring(0,2).toUpperCase();
+  const pulso = func.status === 'danger' ? `<circle cx="20" cy="20" r="20" fill="${c}" opacity=".15"><animate attributeName="r" from="14" to="24" dur="1.5s" repeatCount="indefinite"/><animate attributeName="opacity" from=".4" to="0" dur="1.5s" repeatCount="indefinite"/></circle>` : '';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="52" viewBox="0 0 40 52">
+    ${pulso}
+    <circle cx="20" cy="20" r="16" fill="${c}" opacity=".15"/>
+    <circle cx="20" cy="20" r="12" fill="${c}" opacity=".25" stroke="${c}" stroke-width="1.5"/>
+    <circle cx="20" cy="20" r="5" fill="${c}"/>
+    <text x="20" y="44" font-size="9" fill="${c}" text-anchor="middle" font-family="DM Sans,sans-serif" font-weight="600">${sigla}</text>
+  </svg>`;
+  return L.divIcon({
+    html: svg, className: '', iconSize: [40, 52], iconAnchor: [20, 20], popupAnchor: [0, -22]
+  });
+}
+
+function criarPopup(f) {
+  const emp = empresas.find(e => e.id === f.empresaId);
+  const stLabel = { ok:'Em serviço', warn:'Parado demais', danger:'Fora da área', off:'Inativo' };
+  const stCls = { ok:'pp-ok', warn:'pp-warn', danger:'pp-bad' };
+  const devLabel = { gps:'GPS Tracker', app:'App celular', nfc:'Crachá NFC', watch:'Smartwatch 4G' };
+  return `<div class="popup-box">
+    <div class="popup-name">${f.nome}</div>
+    <div class="popup-role">${f.cargo} · ${emp ? emp.nome : '—'}</div>
+    <div class="popup-row"><span class="pk">Última posição</span><span class="pv">${f.ultimaVez || '—'}</span></div>
+    <div class="popup-row"><span class="pk">Dispositivo</span><span class="pv">${devLabel[f.device] || '—'}</span></div>
+    <div class="popup-row"><span class="pk">Bateria</span><span class="pv">${f.bat || '—'}</span></div>
+    <span class="popup-pill ${stCls[f.status]||'pp-ok'}">${stLabel[f.status]||'—'}</span>
+    <div class="popup-actions">
+      <div class="pa-btn" onclick="selecionarFunc('${f.id}')">Detalhe</div>
+      <div class="pa-btn primary" onclick="centralizarFunc('${f.id}')">Centrar</div>
+    </div>
+  </div>`;
+}
+
+function renderMapMarkers() {
+  // Remove marcadores antigos
+  Object.values(markers).forEach(m => map.removeLayer(m));
+  Object.values(circles).forEach(c => map.removeLayer(c));
+  markers = {}; circles = {};
+
+  // Cercas virtuais
+  empresas.forEach(e => {
+    if (!e.lat) return;
+    const c = L.circle([e.lat, e.lng], {
+      radius: e.raio || 200,
+      color: '#00e5a0', weight: 1.5, opacity: .5,
+      fillColor: '#00e5a0', fillOpacity: .04,
+      dashArray: '8 4'
+    }).addTo(map);
+    c.bindTooltip(e.nome, { permanent: false, direction: 'top', className: 'leaflet-tooltip-dark' });
+    circles[e.id] = c;
+  });
+
+  // Pins dos funcionários
+  funcionarios.forEach(f => {
+    if (!f.lat) return;
+    const m = L.marker([f.lat, f.lng], { icon: criarIcone(f) }).addTo(map);
+    m.bindPopup(criarPopup(f), { maxWidth: 220 });
+    m.on('click', () => selecionarFunc(f.id));
+    markers[f.id] = m;
+  });
+
+  // Centraliza no primeiro funcionário
+  if (funcionarios.length && funcionarios[0].lat) {
+    map.setView([funcionarios[0].lat, funcionarios[0].lng], 15);
+  }
+}
+
+// ══════════════════════════════════════════
+// SIDEBAR
+// ══════════════════════════════════════════
+function renderSidebar(filtro = '') {
+  const list = document.getElementById('func-list');
+  let lista = filtro
+    ? funcionarios.filter(f => f.nome.toLowerCase().includes(filtro.toLowerCase()))
+    : funcionarios;
+
+  if (!lista.length) {
+    list.innerHTML = '<div class="empty"><div class="empty-sub">Nenhum funcionário encontrado</div></div>';
+    return;
+  }
+
+  const cores = ['#0d3328','#0d1f35','#2a1a05','#1a0d35','#0d1a35'];
+  const tcores = ['var(--accent)','var(--blue)','var(--amber)','#9d7aff','var(--red)'];
+
+  list.innerHTML = lista.map(f => {
+    const stCls = { ok:'', warn:'warn', danger:'alrt' }[f.status] || '';
+    const sdCls = { ok:'sd-g', warn:'sd-a', danger:'sd-r', off:'sd-x' }[f.status] || 'sd-x';
+    const emp = empresas.find(e => e.id === f.empresaId);
+    const ci = f.nome.charCodeAt(0) % 5;
+    const sigla = f.nome.split(' ').map(p=>p[0]).join('').substring(0,2).toUpperCase();
+    return `<div class="fitem ${stCls} ${f.id===selectedFuncId?'sel':''}" id="fitem-${f.id}" onclick="selecionarFunc('${f.id}')">
+      <div class="fav" style="background:${cores[ci]};color:${tcores[ci]}">${sigla}</div>
+      <div class="fi-body">
+        <div class="fi-name">${f.nome}</div>
+        <div class="fi-sub">${emp ? emp.nome : f.cargo}</div>
+      </div>
+      <div class="sdot ${sdCls}"></div>
+    </div>`;
+  }).join('');
+}
+
+function filtrarFuncionarios(v) { renderSidebar(v); }
+
+// ══════════════════════════════════════════
+// SELECIONAR FUNCIONÁRIO
+// ══════════════════════════════════════════
+function selecionarFunc(id) {
+  selectedFuncId = id;
+  const f = funcionarios.find(x => x.id === id);
+  if (!f) return;
+
+  document.querySelectorAll('.fitem').forEach(el => el.classList.remove('sel'));
+  const el = document.getElementById('fitem-' + id);
+  if (el) el.classList.add('sel');
+
+  const emp = empresas.find(e => e.id === f.empresaId);
+  const stLabel = { ok:'Em serviço', warn:'Parado demais', danger:'Fora da área' };
+  const stCls = { ok:'ds-ok', warn:'ds-warn', danger:'ds-bad' };
+  const devLabel = { gps:'GPS Tracker', app:'App celular', nfc:'Crachá NFC', watch:'Smartwatch 4G' };
+  const cores = ['#0d3328','#0d1f35','#2a1a05','#1a0d35','#0d1a35'];
+  const tcores = ['var(--accent)','var(--blue)','var(--amber)','#9d7aff','var(--red)'];
+  const ci = f.nome.charCodeAt(0) % 5;
+  const sigla = f.nome.split(' ').map(p=>p[0]).join('').substring(0,2).toUpperCase();
+
+  const evs = {
+    ok: [{ cls:'ev-g', title:'✅ Em serviço', time:'Turno ativo', desc:'Dentro da área monitorada' }],
+    warn: [{ cls:'ev-a', title:'⚠ Parado há muito tempo', time:f.ultimaVez, desc:'Sem movimentação além do limite configurado' }],
+    danger: [{ cls:'ev-r', title:'🚨 Fora do perímetro', time:f.ultimaVez, desc:'GPS fora da cerca virtual — alerta disparado' }],
+  }[f.status] || [];
+
+  const chip = chips.find(c => c.funcId === id);
+
+  document.getElementById('rp-detail').innerHTML = `
+    <div class="detail-head">
+      <div class="detail-av" style="background:${cores[ci]};color:${tcores[ci]}">${sigla}</div>
+      <div>
+        <div class="detail-name">${f.nome}</div>
+        <div class="detail-role">${f.cargo} · ${emp ? emp.nome : '—'}</div>
+        <span class="detail-status ${stCls[f.status]||'ds-ok'}">${stLabel[f.status]||'—'}</span>
+      </div>
+    </div>
+    <div class="stat-grid-sm">
+      <div class="stat-sm"><div class="v" style="color:var(--accent)">${f.ultimaVez||'—'}</div><div class="l">Últ. posição</div></div>
+      <div class="stat-sm"><div class="v" style="color:${f.parado?.includes('⚠')?'var(--amber)':'var(--text)';font-size:13px">${f.parado||'—'}</div><div class="l">Parado</div></div>
+      <div class="stat-sm"><div class="v" style="font-size:13px">${devLabel[f.device]||'—'}</div><div class="l">Dispositivo</div></div>
+      <div class="stat-sm"><div class="v" style="font-size:13px;color:${parseFloat(f.bat||100)>50?'var(--accent)':'var(--amber)'}">${f.bat||'—'}</div><div class="l">Bateria</div></div>
+    </div>
+    ${chip ? `<div class="stat-sm" style="margin-bottom:10px"><div style="font-size:10px;color:var(--text2)">IMEI do rastreador</div><div style="font-size:12px;font-family:monospace;color:var(--accent);margin-top:4px">···${chip.imei.slice(-6)}</div></div>` : ''}
+    <div class="sec-lbl">Eventos do turno</div>
+    <div class="ev-list">${evs.map(e=>`<div class="ev ${e.cls}"><div class="ev-title">${e.title}</div><div class="ev-time">${e.time} · ${e.desc}</div></div>`).join('')}</div>
+    <div style="display:flex;gap:6px;margin-top:12px">
+      <button class="btn sm primary" onclick="centralizarFunc('${id}')">Ver no mapa</button>
+      <button class="btn sm" onclick="toast('WhatsApp enviado para ${f.nome}!')">WhatsApp</button>
+    </div>
+  `;
+
+  // Centraliza no mapa e abre popup
+  if (f.lat && markers[id]) {
+    map.setView([f.lat, f.lng], 17, { animate: true });
+    markers[id].openPopup();
+  }
+
+  // Garante aba detail visível
+  document.querySelectorAll('.rp-tab').forEach((t,i) => t.classList.toggle('on', i===0));
+  document.getElementById('rp-detail').style.display = 'block';
+  document.getElementById('rp-notif').style.display = 'none';
+  document.getElementById('rp-emp').style.display = 'none';
+}
+
+function centralizarFunc(id) {
+  const f = funcionarios.find(x => x.id === id);
+  if (f && f.lat) {
+    map.setView([f.lat, f.lng], 18, { animate: true });
+    if (markers[id]) markers[id].openPopup();
+  }
+}
+
+// ══════════════════════════════════════════
+// MÉTRICAS
+// ══════════════════════════════════════════
+function renderMetricas() {
+  document.getElementById('m-ativos').textContent = funcionarios.filter(f=>f.status==='ok').length;
+  document.getElementById('m-alertas').textContent = funcionarios.filter(f=>f.status==='danger').length;
+  document.getElementById('m-parados').textContent = funcionarios.filter(f=>f.status==='warn').length;
+  document.getElementById('m-total').textContent = funcionarios.length;
+}
+
+// ══════════════════════════════════════════
+// ALERT BAR
+// ══════════════════════════════════════════
+function renderAlertBar() {
+  const chips_el = document.getElementById('alert-chips');
+  const no_el = document.getElementById('no-alerts');
+  const alertas = funcionarios.filter(f => f.status === 'danger' || f.status === 'warn');
+  chips_el.innerHTML = alertas.map(f => {
+    const cls = f.status === 'danger' ? 'r' : 'a';
+    const ico = f.status === 'danger' ? '🚨' : '⚠';
+    const txt = f.status === 'danger' ? 'fora da área' : 'parado demais';
+    return `<span class="achip ${cls}" onclick="selecionarFunc('${f.id}')">${ico} ${f.nome} — ${txt}</span>`;
+  }).join('');
+  no_el.style.display = alertas.length ? 'none' : 'inline';
+  document.getElementById('notif-badge').textContent = alertas.length;
+  document.getElementById('notif-badge').style.display = alertas.length ? 'flex' : 'none';
+}
+
+// ══════════════════════════════════════════
+// NOTIFICAÇÕES
+// ══════════════════════════════════════════
+function renderNotifs() {
+  const alertas = funcionarios.filter(f => f.status !== 'ok');
+  document.getElementById('rp-notif').innerHTML = alertas.length ? alertas.map(f => {
+    const cls = f.status==='danger'?'nr':'na';
+    const ico = f.status==='danger'?'🚨':'⚠';
+    return `<div class="notif-item ${cls}" onclick="selecionarFunc('${f.id}')">
+      <div class="ni-hd"><span class="ni-title">${ico} ${f.nome}</span><span class="ni-time">agora</span></div>
+      <div class="ni-body">${f.status==='danger'?'Fora do perímetro autorizado':'Parado há '+f.parado+' sem movimentação'}</div>
+    </div>`;
+  }).join('') : '<div class="empty"><div class="empty-icon">✅</div><div class="empty-sub">Nenhum alerta no momento</div></div>';
+}
+
+function showNotifs() {
+  // Muda para aba de alertas no painel direito
+  document.querySelectorAll('.rp-tab').forEach((t,i)=>t.classList.toggle('on',i===1));
+  document.getElementById('rp-detail').style.display='none';
+  document.getElementById('rp-notif').style.display='block';
+  document.getElementById('rp-emp').style.display='none';
+}
+
+// ══════════════════════════════════════════
+// LOCAIS (aba Emp no painel direito)
+// ══════════════════════════════════════════
+function renderLocais() {
+  document.getElementById('rp-emp').innerHTML = empresas.map(e => {
+    const nf = funcionarios.filter(f=>f.empresaId===e.id).length;
+    return `<div style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r3);padding:10px;margin-bottom:8px;cursor:pointer" onclick="centerEmpresa('${e.id}')">
+      <div style="font-size:13px;font-weight:500;margin-bottom:3px">${e.nome}</div>
+      <div style="font-size:10px;color:var(--text2);margin-bottom:6px">${e.tipo}</div>
+      <div style="display:flex;gap:5px">
+        <span class="pill p-g">${nf} func.</span>
+        <span class="pill p-x">${e.raio||200}m raio</span>
+      </div>
+    </div>`;
+  }).join('') || '<div class="empty"><div class="empty-sub">Nenhuma empresa cadastrada</div></div>';
+}
+
+function centerEmpresa(id) {
+  const e = empresas.find(x=>x.id===id);
+  if (e && e.lat) map.setView([e.lat, e.lng], 16, { animate: true });
+}
+
+function setRpTab(el, tab) {
+  document.querySelectorAll('.rp-tab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('rp-detail').style.display = tab==='detail'?'block':'none';
+  document.getElementById('rp-notif').style.display = tab==='notif'?'block':'none';
+  document.getElementById('rp-emp').style.display = tab==='emp'?'block':'none';
+}
+
+// ══════════════════════════════════════════
+// LISTA EMPRESAS (cadastro)
+// ══════════════════════════════════════════
+function renderEmpList() {
+  const list = document.getElementById('emp-list');
+  list.innerHTML = empresas.map(e => `
+    <div class="citem" onclick="editarEmpresa('${e.id}')">
+      <div class="citem-name">${e.nome}</div>
+      <div class="citem-sub">${e.tipo}</div>
+      <div class="citem-badges">
+        <span class="pill p-g">${funcionarios.filter(f=>f.empresaId===e.id).length} func.</span>
+        <span class="pill p-x">${e.raio||200}m</span>
+      </div>
+    </div>
+  `).join('') + `<div class="citem" style="border-style:dashed;text-align:center;color:var(--text3);cursor:pointer" onclick="novaEmpresa()">+ Nova empresa</div>`;
+}
+
+function renderFuncCadList() {
+  const list = document.getElementById('func-cad-list');
+  const devLabel = { gps:'GPS', app:'App', nfc:'NFC', watch:'Watch' };
+  list.innerHTML = funcionarios.map(f => {
+    const emp = empresas.find(e=>e.id===f.empresaId);
+    return `<div class="citem" onclick="editarFuncionario('${f.id}')">
+      <div class="citem-name">${f.nome}</div>
+      <div class="citem-sub">${f.cargo} · ${emp?emp.nome:'—'}</div>
+      <div class="citem-badges">
+        <span class="pill p-x">${devLabel[f.device]||'—'}</span>
+        <span class="pill ${f.status==='ok'?'p-g':f.status==='warn'?'p-a':'p-r'}">${f.status==='ok'?'OK':f.status==='warn'?'Parado':'Alerta'}</span>
+      </div>
+    </div>`;
+  }).join('') + `<div class="citem" style="border-style:dashed;text-align:center;color:var(--text3);cursor:pointer" onclick="novoFuncionario()">+ Novo funcionário</div>`;
+}
+
+function renderChipList() {
+  const list = document.getElementById('chip-list');
+  list.innerHTML = chips.map(c => {
+    const f = funcionarios.find(x=>x.id===c.funcId);
+    return `<div class="citem">
+      <div class="citem-name">${f?f.nome:'Sem vínculo'}</div>
+      <div class="citem-sub" style="font-family:monospace;font-size:10px">IMEI: ${c.imei}</div>
+      <div class="citem-badges"><span class="pill ${c.status==='online'?'p-g':'p-x'}">${c.status==='online'?'Online':'Offline'}</span></div>
+    </div>`;
+  }).join('') + `<div class="citem" style="border-style:dashed;text-align:center;color:var(--text3);cursor:pointer" onclick="novoChip()">+ Vincular rastreador</div>`;
+}
+
+// ══════════════════════════════════════════
+// EMPRESA — MODAL COM MAPA MINI
+// ══════════════════════════════════════════
+function novaEmpresa() {
+  editEmpId = null;
+  document.getElementById('modal-emp-title').textContent = 'Nova empresa cliente';
+  document.getElementById('btn-salvar-emp').textContent = 'Salvar empresa';
+  ['e-nome','e-email'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('e-end').value = '';
+  document.getElementById('e-raio').value = 200;
+  document.getElementById('e-raio-val').textContent = '200m';
+  miniCenter = [-23.5505, -46.6333];
+  abrirModal('modal-emp');
+  setTimeout(initMiniMap, 200);
+}
+
+function editarEmpresa(id) {
+  const e = empresas.find(x=>x.id===id);
+  if (!e) return;
+  editEmpId = id;
+  document.getElementById('modal-emp-title').textContent = 'Editar empresa';
+  document.getElementById('btn-salvar-emp').textContent = 'Atualizar';
+  document.getElementById('e-nome').value = e.nome||'';
+  document.getElementById('e-end').value = e.endereco||'';
+  document.getElementById('e-email').value = e.email||'';
+  document.getElementById('e-raio').value = e.raio||200;
+  document.getElementById('e-raio-val').textContent = (e.raio||200)+'m';
+  miniCenter = [e.lat||miniCenter[0], e.lng||miniCenter[1]];
+  abrirModal('modal-emp');
+  setTimeout(() => { initMiniMap(); }, 200);
+}
+
+function initMiniMap() {
+  const el = document.getElementById('mini-map');
+  if (miniMap) { miniMap.remove(); miniMap = null; miniCircle = null; miniMarker = null; }
+  el.innerHTML = '';
+  miniMap = L.map('mini-map', { center: miniCenter, zoom: 15, zoomControl: true });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'©OSM', maxZoom:19 }).addTo(miniMap);
+
+  const raio = parseInt(document.getElementById('e-raio').value) || 200;
+  miniCircle = L.circle(miniCenter, { radius:raio, color:'#00e5a0', weight:1.5, opacity:.6, fillColor:'#00e5a0', fillOpacity:.06, dashArray:'8 4' }).addTo(miniMap);
+  miniMarker = L.circleMarker(miniCenter, { radius:8, color:'#00e5a0', fillColor:'#00e5a0', fillOpacity:.9, weight:2 }).addTo(miniMap);
+
+  miniMap.on('click', e => {
+    miniCenter = [e.latlng.lat, e.latlng.lng];
+    miniMarker.setLatLng(miniCenter);
+    miniCircle.setLatLng(miniCenter);
+    toast('Centro da cerca reposicionado!');
+  });
+}
+
+function updateMiniCircle(v) {
+  document.getElementById('e-raio-val').textContent = v+'m';
+  if (miniCircle) miniCircle.setRadius(parseInt(v));
+}
+
+function debounceGeocode() {
+  clearTimeout(geocodeTimer);
+  geocodeTimer = setTimeout(geocodeAddress, 1000);
+}
+
+function geocodeAddress() {
+  const addr = document.getElementById('e-end').value.trim();
+  if (addr.length < 5) return;
+  fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}&limit=1&countrycodes=br`)
+    .then(r => r.json())
+    .then(data => {
+      if (data && data[0]) {
+        miniCenter = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+        if (miniMap) {
+          miniMap.setView(miniCenter, 16);
+          miniMarker.setLatLng(miniCenter);
+          miniCircle.setLatLng(miniCenter);
+          toast('Endereço encontrado no mapa ✓');
+        }
+      }
+    }).catch(() => {});
+}
+
+function salvarEmpresa() {
+  const nome = document.getElementById('e-nome').value.trim();
+  const end  = document.getElementById('e-end').value.trim();
+  if (!nome) { toast('Informe o nome da empresa', 'err'); return; }
+
+  const dados = {
+    id: editEmpId || ('e_' + Date.now()),
+    nome, tipo: document.getElementById('e-tipo').value,
+    endereco: end, email: document.getElementById('e-email').value,
+    turno: document.getElementById('e-turno').value,
+    lat: miniCenter[0], lng: miniCenter[1],
+    raio: parseInt(document.getElementById('e-raio').value) || 200,
+    ativo: true,
+  };
+
+  if (editEmpId) {
+    empresas = empresas.map(e => e.id === editEmpId ? dados : e);
+    toast('Empresa atualizada!');
+  } else {
+    empresas.push(dados);
+    toast('Empresa cadastrada!');
+  }
+
+  fecharModal('modal-emp');
+  renderTudo();
+}
+
+// ══════════════════════════════════════════
+// FUNCIONÁRIO — FORM INLINE
+// ══════════════════════════════════════════
+function novoFuncionario() {
+  document.getElementById('func-form').innerHTML = `
+    <div class="form-title">Novo funcionário</div>
+    <div class="form-sub">Cadastre e escolha o dispositivo de rastreamento.</div>
+    <div class="form-grid">
+      <div class="fg"><label class="flbl">Nome completo *</label><input class="finput" id="fn-nome" placeholder="Nome do funcionário"/></div>
+      <div class="fg"><label class="flbl">CPF</label><input class="finput" id="fn-cpf" placeholder="000.000.000-00"/></div>
+    </div>
+    <div class="form-grid">
+      <div class="fg"><label class="flbl">Cargo</label><select class="finput" id="fn-cargo"><option>Vigilante</option><option>Porteiro</option><option>Zelador</option><option>Limpeza</option><option>Monitoramento</option><option>Supervisor</option><option>Recepcionista</option></select></div>
+      <div class="fg"><label class="flbl">Turno</label><select class="finput" id="fn-turno"><option>12x36 Diurno</option><option>12x36 Noturno</option><option>Diurno 8h</option><option>Noturno 8h</option><option>24h</option></select></div>
+    </div>
+    <div class="form-grid">
+      <div class="fg"><label class="flbl">Empresa *</label><select class="finput" id="fn-emp">${empresas.map(e=>`<option value="${e.id}">${e.nome}</option>`).join('')}</select></div>
+      <div class="fg"><label class="flbl">Dispositivo</label><select class="finput" id="fn-dev"><option value="gps">GPS Tracker</option><option value="app">App no celular</option><option value="nfc">Crachá NFC</option><option value="watch">Smartwatch 4G</option></select></div>
+    </div>
+    <div class="form-grid">
+      <div class="fg"><label class="flbl">WhatsApp</label><input class="finput" id="fn-tel" placeholder="(11) 99999-9999"/></div>
+      <div class="fg"><label class="flbl">IMEI (se GPS Tracker)</label><input class="finput" id="fn-imei" placeholder="15 dígitos"/><span class="fhint">Deixe em branco para app no celular</span></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="cancelarForm('func')">Cancelar</button>
+      <button class="btn primary" onclick="salvarFuncionarioFB()">Salvar funcionário</button>
+    </div>
+  `;
+}
+
+function editarFuncionario(id) {
+  const f = funcionarios.find(x=>x.id===id);
+  if (!f) return;
+  novoFuncionario();
+  setTimeout(() => {
+    document.getElementById('fn-nome').value = f.nome||'';
+    document.getElementById('fn-cpf').value = f.cpf||'';
+    document.getElementById('fn-cargo').value = f.cargo||'Vigilante';
+    document.getElementById('fn-turno').value = f.turno||'12x36 Diurno';
+    document.getElementById('fn-emp').value = f.empresaId||'';
+    document.getElementById('fn-dev').value = f.device||'gps';
+    document.getElementById('fn-tel').value = f.tel||'';
+    document.querySelector('#func-form .form-title').textContent = 'Editar funcionário';
+    document.querySelector('#func-form .btn.primary').onclick = () => salvarFuncionarioFB(id);
+  }, 50);
+}
+
+function salvarFuncionario(editId = null) {
+  const nome = document.getElementById('fn-nome')?.value.trim();
+  const empId = document.getElementById('fn-emp')?.value;
+  if (!nome) { toast('Informe o nome', 'err'); return; }
+  const emp = empresas.find(e=>e.id===empId);
+
+  const dados = {
+    id: editId || ('f_' + Date.now()),
+    nome, cpf: document.getElementById('fn-cpf').value,
+    cargo: document.getElementById('fn-cargo').value,
+    turno: document.getElementById('fn-turno').value,
+    empresaId: empId,
+    device: document.getElementById('fn-dev').value,
+    tel: document.getElementById('fn-tel').value,
+    status: 'ok',
+    lat: emp ? emp.lat + (Math.random()-.5)*.001 : -23.55,
+    lng: emp ? emp.lng + (Math.random()-.5)*.001 : -46.63,
+    ultimaVez: new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
+    parado: '0min', bat: '—',
+  };
+
+  const imei = document.getElementById('fn-imei')?.value.trim();
+  if (imei && imei.length === 15) {
+    chips.push({ id:'c_'+Date.now(), imei, funcId:dados.id, status:'online' });
+  }
+
+  if (editId) {
+    funcionarios = funcionarios.map(f => f.id===editId ? dados : f);
+    toast('Funcionário atualizado!');
+  } else {
+    funcionarios.push(dados);
+    toast('Funcionário cadastrado!');
+  }
+
+  cancelarForm('func');
+  renderTudo();
+}
+
+// ══════════════════════════════════════════
+// CHIP GPS — FORM INLINE
+// ══════════════════════════════════════════
+function novoChip() {
+  document.getElementById('chip-form').innerHTML = `
+    <div class="form-title">Vincular rastreador GPS</div>
+    <div class="form-sub">Insira o IMEI impresso na etiqueta do rastreador e vincule a um funcionário.</div>
+    <div class="form-grid">
+      <div class="fg"><label class="flbl">IMEI do rastreador *</label><input class="finput" id="ch-imei" placeholder="15 dígitos" maxlength="15"/><span class="fhint">SMS para obter: IMEI,0000#</span></div>
+      <div class="fg"><label class="flbl">Funcionário *</label><select class="finput" id="ch-func">${funcionarios.map(f=>`<option value="${f.id}">${f.nome}</option>`).join('')}</select></div>
+    </div>
+    <div class="form-grid">
+      <div class="fg"><label class="flbl">Modelo do rastreador</label><select class="finput" id="ch-modelo"><option>Concox GT06N</option><option>TK103</option><option>ST-901</option><option>Jointech JT701</option><option>Smartwatch 4G</option></select></div>
+      <div class="fg"><label class="flbl">Operadora do chip</label><select class="finput" id="ch-op"><option>Vivo</option><option>Claro</option><option>TIM</option><option>Oi</option></select></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="cancelarForm('chip')">Cancelar</button>
+      <button class="btn primary" onclick="salvarChip()">Vincular rastreador</button>
+    </div>
+  `;
+}
+
+function salvarChip() {
+  const imei = document.getElementById('ch-imei')?.value.trim();
+  const funcId = document.getElementById('ch-func')?.value;
+  if (!imei || imei.length !== 15) { toast('IMEI deve ter 15 dígitos', 'err'); return; }
+  chips.push({ id:'c_'+Date.now(), imei, funcId, status:'aguardando', modelo: document.getElementById('ch-modelo').value });
+  toast('Rastreador vinculado! Configure via SMS e ele aparecerá no mapa.');
+  cancelarForm('chip');
+  renderTudo();
+}
+
+// ══════════════════════════════════════════
+// RELATÓRIOS
+// ══════════════════════════════════════════
+function atualizarSelects() {
+  const rel = document.getElementById('rel-emp');
+  if (rel) rel.innerHTML = '<option>Todas as empresas</option>' + empresas.map(e=>`<option>${e.nome}</option>`).join('');
+}
+
+function gerarRel() {
+  const emp = document.getElementById('rel-emp').value;
+  const mes = document.querySelector('#page-relatorios select:last-of-type')?.value || 'Maio 2026';
+  const hist = document.getElementById('rel-hist');
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)';
+  div.innerHTML = `<div><div style="font-size:13px;font-weight:500">${emp} — ${mes}</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Gerado agora · enviado por e-mail</div></div><span class="pill p-g">Enviado ✓</span>`;
+  if (hist.querySelector('.empty')) hist.innerHTML = '';
+  hist.prepend(div);
+  toast(`Relatório gerado e enviado para o cliente!`);
+}
+
+// ══════════════════════════════════════════
+// NAVEGAÇÃO ENTRE PÁGINAS
+// ══════════════════════════════════════════
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('on'));
+  document.querySelectorAll('.npill').forEach(b => b.classList.remove('on'));
+  document.getElementById('page-'+id).classList.add('on');
+  if (btn) btn.classList.add('on');
+  if (id === 'painel') setTimeout(() => map && map.invalidateSize(), 100);
+}
+
+// ══════════════════════════════════════════
+// UTILITÁRIOS
+// ══════════════════════════════════════════
+function abrirModal(id) { document.getElementById(id).classList.add('open') }
+function fecharModal(id) { document.getElementById(id).classList.remove('open') }
+function cancelarForm(tipo) {
+  const el = document.getElementById(tipo+'-form');
+  if (el) el.innerHTML = '<div class="empty" style="margin-top:60px"><div class="empty-icon">👆</div><div class="empty-title">Selecione um item</div></div>';
+}
+
+function toast(msg, tipo='ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${tipo==='err'?'err':''} show`;
+  clearTimeout(window._tt);
+  window._tt = setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// Relógio
+setInterval(() => {
+  const d = new Date();
+  document.getElementById('clk').textContent =
+    String(d.getHours()).padStart(2,'0')+':'+
+    String(d.getMinutes()).padStart(2,'0')+':'+
+    String(d.getSeconds()).padStart(2,'0');
+}, 1000);
+
+// Fecha modal clicando fora
+document.querySelectorAll('.overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open') });
+});
+
+// Simula movimento dos pins a cada 15s
+setInterval(() => {
+  funcionarios.forEach(f => {
+    if (f.status === 'ok' && f.lat) {
+      f.lat += (Math.random()-.5)*0.0002;
+      f.lng += (Math.random()-.5)*0.0002;
+      f.ultimaVez = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+      if (markers[f.id]) markers[f.id].setLatLng([f.lat, f.lng]);
+    }
+  });
+}, 15000);
+
+// ══════════════════════════════════════════
+// FIREBASE — listeners em tempo real
+// ══════════════════════════════════════════
+document.addEventListener('fb-ready', () => {
+  const badge = document.getElementById('fb-badge');
+  if(badge){ badge.textContent='✅ Firebase'; badge.style.cssText='font-size:10px;padding:3px 10px;border-radius:20px;background:rgba(0,229,160,.14);color:#00e5a0;font-weight:600'; }
+
+  window._onSnapshot(window._col(window._db,'empresas'), snap => {
+    empresas = snap.docs.map(d => ({id:d.id,...d.data()}));
+    renderEmpList(); renderLocais(); atualizarSelects(); renderMapMarkers();
+  });
+  window._onSnapshot(window._col(window._db,'funcionarios'), snap => {
+    funcionarios = snap.docs.map(d => ({id:d.id,...d.data()}));
+    renderSidebar(); renderMetricas(); renderAlertBar();
+    renderNotifs(); renderFuncCadList(); renderMapMarkers();
+  });
+  window._onSnapshot(window._col(window._db,'chips'), snap => {
+    chips = snap.docs.map(d => ({id:d.id,...d.data()}));
+    renderChipList();
+  });
+  // Aponta botão salvar para versão Firebase
+  const btnEmp = document.getElementById('btn-salvar-emp');
+  if(btnEmp) btnEmp.onclick = salvarEmpresaFB;
+  toast('Firebase conectado! Dados salvos em tempo real.');
+});
+
+// ── Salvar Empresa com Firebase ──
+async function salvarEmpresaFB() {
+  const nome = document.getElementById('e-nome').value.trim();
+  if (!nome) { toast('Informe o nome','err'); return; }
+  const btn = document.getElementById('btn-salvar-emp');
+  btn.innerHTML = '<span class="spin"></span>Salvando...';
+  btn.disabled = true;
+  const dados = {
+    nome, tipo: document.getElementById('e-tipo').value,
+    endereco: document.getElementById('e-end').value,
+    email: document.getElementById('e-email').value,
+    turno: document.getElementById('e-turno').value,
+    lat: miniCenter[0], lng: miniCenter[1],
+    raio: parseInt(document.getElementById('e-raio').value)||200,
+    ativo: true, criadoEm: new Date().toISOString(),
+  };
+  try {
+    if (window._fbReady) {
+      if (editEmpId) {
+        await window._updateDoc(window._doc(window._db,'empresas',editEmpId), dados);
+        toast('Empresa atualizada!');
+      } else {
+        await window._addDoc(window._col(window._db,'empresas'), dados);
+        toast('Empresa salva no Firebase!');
+      }
+    } else {
+      dados.id='local_'+Date.now();
+      editEmpId ? (empresas=empresas.map(e=>e.id===editEmpId?dados:e)) : empresas.push(dados);
+      renderTudo(); toast('Salvo localmente');
+    }
+    fecharModal('modal-emp');
+  } catch(e){ toast('Erro: '+e.message,'err'); }
+  finally{ btn.innerHTML=editEmpId?'Atualizar':'Salvar empresa'; btn.disabled=false; }
+}
+
+// ── Salvar Funcionário com Firebase ──
+async function salvarFuncionarioFB(editId=null) {
+  const nome  = document.getElementById('fn-nome')?.value.trim();
+  const empId = document.getElementById('fn-emp')?.value;
+  if (!nome) { toast('Informe o nome','err'); return; }
+  const emp = empresas.find(e=>e.id===empId);
+  const dados = {
+    nome, cpf: document.getElementById('fn-cpf').value,
+    cargo: document.getElementById('fn-cargo').value,
+    turno: document.getElementById('fn-turno').value,
+    empresaId: empId,
+    device: document.getElementById('fn-dev').value,
+    tel: document.getElementById('fn-tel').value,
+    status: 'ok',
+    lat: emp ? emp.lat+(Math.random()-.5)*.001 : -23.55,
+    lng: emp ? emp.lng+(Math.random()-.5)*.001 : -46.63,
+    ultimaVez: new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
+    parado:'0min', bat:'—', criadoEm: new Date().toISOString(),
+  };
+  const imei = document.getElementById('fn-imei')?.value.trim();
+  try {
+    if (window._fbReady) {
+      if (editId) {
+        await window._updateDoc(window._doc(window._db,'funcionarios',editId), dados);
+        toast('Funcionário atualizado!');
+      } else {
+        const ref = await window._addDoc(window._col(window._db,'funcionarios'), dados);
+        if (imei && imei.length===15) {
+          await window._addDoc(window._col(window._db,'chips'), {imei, funcId:ref.id, status:'aguardando', criadoEm:new Date().toISOString()});
+        }
+        toast('Funcionário salvo no Firebase!');
+      }
+    } else {
+      dados.id='local_'+Date.now();
+      editId ? (funcionarios=funcionarios.map(f=>f.id===editId?dados:f)) : funcionarios.push(dados);
+      if(imei&&imei.length===15) chips.push({id:'c_'+Date.now(),imei,funcId:dados.id,status:'aguardando'});
+      renderTudo(); toast('Salvo localmente');
+    }
+    cancelarForm('func');
+  } catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+// INIT
+window.addEventListener('load', () => {
+  // Badge Firebase
+  const badge = document.createElement('span');
+  badge.id = 'fb-badge';
+  badge.textContent = '⏳ Conectando...';
+  badge.style.cssText = 'font-size:10px;padding:3px 10px;border-radius:20px;background:rgba(255,176,32,.1);color:#ffb020;font-weight:600';
+  const tr = document.querySelector('.topbar-right');
+  if(tr) tr.prepend(badge);
+
+  initMap();
+
+  setTimeout(() => {
+    if (!window._fbReady) {
+      badge.textContent = '⚠ Offline — modo demo';
+      badge.style.cssText = 'font-size:10px;padding:3px 10px;border-radius:20px;background:rgba(255,68,68,.1);color:#ff4444;font-weight:600';
+      carregarDemo();
+    }
+  }, 4000);
+});
+</script>
+</body>
+</html>
